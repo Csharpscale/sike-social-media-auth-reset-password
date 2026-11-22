@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#FFF4DE">
+<title>SIKE</title>
+<style>
+  :root {
+    --ink: #FFF4DE; --paper: #FFFCF4; --paper2: #F7E8C9; --chalk: #33271F;
+    --muted: #82715F; --yellow: #F5C84C; --coral: #EF806D; --border: #B79A70; --green: #4F7A4A;
+  }
+  * { box-sizing: border-box; }
+  html, body { min-height: 100%; margin: 0; }
+  body {
+    display: flex; align-items: center; justify-content: center; padding: 24px; min-height: 100vh;
+    background: var(--ink) radial-gradient(circle at 1px 1px, rgba(183,154,112,.22) 1px, transparent 0) 0 0 / 22px 22px;
+    color: var(--chalk);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .card {
+    width: 100%; max-width: 420px; text-align: center; padding: 38px 28px 30px;
+    background: var(--paper); border: 2px solid var(--border); border-radius: 28px;
+    box-shadow: 6px 8px 0 rgba(183,154,112,.35);
+  }
+  .brand, h1 { font-family: "Segoe Print", "Bradley Hand", "Chalkboard SE", "Comic Sans MS", cursive; }
+  .brand { font-size: 20px; letter-spacing: 6px; color: var(--muted); margin: 0 0 22px; }
+  .badge {
+    width: 86px; height: 86px; margin: 0 auto 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--yellow); border: 3px solid var(--chalk);
+    font-size: 44px; font-weight: 800; line-height: 1;
+    animation: pop .55s cubic-bezier(.2,1.4,.4,1) both;
+  }
+  .badge.warn { background: var(--coral); color: var(--paper); }
+  h1 { margin: 0 0 12px; font-size: 32px; line-height: 1.15; }
+  p { margin: 0 0 22px; font-size: 17px; line-height: 1.5; }
+  .btn {
+    display: inline-block; padding: 14px 30px; border-radius: 999px; cursor: pointer;
+    background: var(--yellow); color: var(--chalk); text-decoration: none; font-weight: 700; font-size: 17px;
+    border: 2px solid var(--chalk); box-shadow: 0 4px 0 var(--chalk);
+    transition: transform .08s, box-shadow .08s; font-family: inherit;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--chalk); }
+  .btn[disabled] { opacity: .55; cursor: default; }
+  .hint { margin: 22px 0 0; font-size: 13px; color: var(--muted); }
+
+  form { text-align: left; margin: 0; }
+  label { display: block; margin: 0 0 6px; font-size: 14px; font-weight: 700; }
+  .field { margin-bottom: 16px; }
+  input[type="password"], input[type="text"] {
+    width: 100%; padding: 13px 14px; font-size: 16px; font-family: inherit; color: var(--chalk);
+    background: var(--paper2); border: 2px solid var(--border); border-radius: 14px; outline: none;
+  }
+  input:focus { border-color: var(--coral); }
+  .show { display: flex; align-items: center; gap: 8px; margin: 0 0 18px; font-size: 14px; font-weight: 400; cursor: pointer; }
+  .show input { width: 18px; height: 18px; accent-color: var(--coral); }
+  .status { min-height: 20px; margin: 0 0 14px; font-size: 14px; line-height: 1.4; text-align: center; }
+  .status.error { color: #C2503D; } .status.ok { color: var(--green); }
+  form .btn { width: 100%; text-align: center; }
+  [hidden] { display: none !important; }
+  @keyframes pop { from { transform: scale(.3); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .badge { animation: none; } }
+</style>
+</head>
+<body>
+  <main class="card">
+    <p class="brand">SIKE</p>
+    <div class="badge" id="badge" aria-hidden="true">✓</div>
+    <h1 id="title">Welcome to SIKE!</h1>
+    <p id="message">Your email is verified. Now please log in again from your app.</p>
+
+    <form id="resetForm" hidden autocomplete="off" novalidate>
+      <div class="field">
+        <label for="pw1">New password</label>
+        <input id="pw1" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters">
+      </div>
+      <div class="field">
+        <label for="pw2">Confirm new password</label>
+        <input id="pw2" type="password" autocomplete="new-password" placeholder="Type it once more">
+      </div>
+      <label class="show"><input id="showPw" type="checkbox"> Show passwords</label>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+      <button class="btn" id="submit" type="submit">Save new password</button>
+    </form>
+
+    <a class="btn" id="open" href="sike://auth">Open SIKE</a>
+    <p class="hint" id="hint">If the button does nothing, just open the SIKE app yourself. You can close this page.</p>
+  </main>
+
+<script>
+(function () {
+  // Public project details (the same public values the app uses). Never put a service_role key here.
+  var SUPABASE_URL = "https://kbhqrdsxpngmtserxmef.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_Qwy0Q1PZv9lKiI1Tu33sHw_1ZIY8k0s";
+
+  var hash = new URLSearchParams((location.hash || "").replace(/^#/, ""));
+  var query = new URLSearchParams((location.search || "").replace(/^\?/, ""));
+  function get(name) { return hash.get(name) || query.get(name) || ""; }
+
+  var type = get("type");
+  var errorCode = get("error_code");
+  var failed = get("error") || errorCode;
+  var accessToken = get("access_token");   // only used for the password reset below, kept in memory
+
+  // Never leave tokens sitting in the address bar or the browser history.
+  if (location.hash || location.search) history.replaceState(null, "", location.pathname);
+
+  var $ = function (id) { return document.getElementById(id); };
+  function show(title, message, warn) {
+    $("title").textContent = title;
+    $("message").textContent = message;
+    $("badge").textContent = warn ? "!" : "✓";
+    $("badge").className = warn ? "badge warn" : "badge";
+  }
+
+  // ── Password reset ───────────────────────────────────────────────────────────
+  function showResetForm() {
+    show("Choose a new password", "Pick a new password for your SIKE account.", false);
+    $("badge").textContent = "🔑";
+    $("resetForm").hidden = false;
+    $("open").hidden = true;
+    $("hint").hidden = true;
+
+    $("showPw").addEventListener("change", function () {
+      var t = this.checked ? "text" : "password";
+      $("pw1").type = t; $("pw2").type = t;
+    });
+
+    function status(text, kind) { var s = $("status"); s.textContent = text; s.className = "status " + (kind || ""); }
+
+    function explain(res, data) {
+      var code = (data && (data.error_code || data.code)) || "";
+      var msg = (data && (data.msg || data.message || data.error_description)) || "";
+      if (code === "same_password") return "Your new password must be different from your old one.";
+      if (code === "weak_password") return msg || "That password is too weak. Try a longer one with letters and numbers.";
+      if (res.status === 401 || res.status === 403 || code === "bad_jwt" || code === "session_not_found" || /jwt|expired/i.test(msg))
+        return "This reset link has expired or was already used. Open SIKE, tap “Forgot password” and ask for a new one.";
+      return msg || "Something went wrong. Please try again.";
+    }
+
+    $("resetForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+      var a = $("pw1").value, b = $("pw2").value;
+      if (a.length < 8) return status("Use at least 8 characters.", "error");
+      if (a !== b) return status("The two passwords don't match.", "error");
+
+      $("submit").disabled = true; status("Saving…", "");
+      fetch(SUPABASE_URL + "/auth/v1/user", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY, "Authorization": "Bearer " + accessToken },
+        body: JSON.stringify({ password: a })
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) { return { res: res, data: data }; });
+      }).then(function (r) {
+        if (!r.res.ok) { status(explain(r.res, r.data), "error"); $("submit").disabled = false; return; }
+        // Done: the new password is now stored in Supabase. End every old session for safety.
+        fetch(SUPABASE_URL + "/auth/v1/logout?scope=global", {
+          method: "POST", headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + accessToken }
+        }).catch(function () {});
+        accessToken = "";
+        $("resetForm").hidden = true;
+        show("Password updated!", "Your new password is saved. Now please log in again from your app with it.", false);
+        $("open").hidden = false; $("hint").hidden = false;
+      }).catch(function () {
+        status("Can't reach SIKE right now. Check your internet connection and try again.", "error");
+        $("submit").disabled = false;
+      });
+    });
+  }
+
+  // ── Which message to show ────────────────────────────────────────────────────
+  if (failed) {
+    show(
+      "This link didn't work",
+      type === "recovery" || /recover|reset/i.test(get("error_description"))
+        ? "This password reset link has expired or was already used. Open SIKE, tap “Forgot password” and ask for a new one."
+        : (errorCode === "otp_expired"
+            ? "This confirmation link has expired or was already used. Open SIKE and log in. If it says your email still needs confirming, ask for a new confirmation email."
+            : "Something went wrong with this link. Open SIKE and try logging in. If that doesn't work, request a new confirmation email."),
+      true
+    );
+  } else if (type === "recovery" && accessToken) {
+    showResetForm();
+  } else if (type === "recovery") {
+    show("This link didn't work", "This password reset link isn't valid. Open SIKE, tap “Forgot password” and ask for a new one.", true);
+  } else if (type === "email_change") {
+    show("Email updated!", "Your new email address is confirmed. If SIKE asks, please log in again from your app.", false);
+  }
+  // Signup (and anything else) keeps the default "Welcome to SIKE!" message.
+})();
+</script>
+</body>
+</html>
